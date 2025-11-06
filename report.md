@@ -50,8 +50,6 @@ The system state follows the standard Banker’s Algorithm notation for **n** pr
 - **`Need[n][m]`** — remaining demand, computed by:
 Need[i][j] = Maximum[i][j] - Allocation[i][j]
 
-perl
-Copy code
 These structures are stored as Python lists of `int`. The constructor takes deep copies to avoid aliasing with caller data.
 
 ---
@@ -68,9 +66,6 @@ These structures are stored as Python lists of `int`. The constructor takes deep
 1. Initialize `work = available[:]` and `finish = [False] * n`.
 2. Repeatedly search for an unfinished process `i` such that:
 Need[i] <= work (component-wise)
-
-markdown
-Copy code
 3. If found:
 - Mark `finish[i] = True`.
 - Append `i` to `safe_sequence`.
@@ -80,10 +75,6 @@ Copy code
   ```
 4. If during a full pass no such process exists while some remain unfinished, the state is **unsafe**.
 5. Return `(True, safe_sequence)` if all processes finish; otherwise `(False, [])`.
-
-**Design notes.**
-- The method performs no I/O; it returns results for the caller to present.
-- The iteration structure ensures progress can only be claimed with explicit evidence (a concrete sequence).
 
 ---
 
@@ -95,21 +86,18 @@ Copy code
 2. **Availability:** Reject if any `request[j] > available[j]`.
 
 **Tentative allocation and validation.**
+
 3. Save the old state: copies of `available`, `allocation`, and `need`.
 4. Apply the **tentative** allocation:
+```
 available[j] -= request[j]
 allocation[i][j] += request[j]
 need[i][j] -= request[j]
+```
 
-pgsql
-Copy code
-5. Run `is_safe()`:
+6. Run `is_safe()`:
 - **If safe:** keep changes and return `True` with the safe sequence in the message.
 - **If unsafe:** **rollback** to the saved state and return `False` with a denial message.
-
-**Design notes.**
-- The function prints a short contextual line (e.g., `Process P1 requests: [1, 0, 2]`) for demo visibility, and returns a `(bool, message)` tuple for programmatic use.
-- Rollback is explicit and complete, ensuring no partial state mutations persist when the request is denied.
 
 ---
 
@@ -145,21 +133,6 @@ The implementation favors clarity and correctness over micro-optimizations.
 - **Soundness of `is_safe()`**: A state is declared safe **only** when the algorithm constructs an explicit order that finishes all processes; if no such order exists, the method returns unsafe.
 - **Safety preservation in `request_resources()`**: Requests are **tentatively** applied and committed **only if** the resulting state passes `is_safe()`. Otherwise, the state is rolled back exactly, ensuring the system never transitions into an unsafe state.
 
----
-
-### i) Resource management and robustness
-- **Immutability at the boundary**: Constructor deep-copies input matrices/vectors to avoid accidental external mutation.
-- **Non-negative integers**: The algorithm assumes integer counts (no fractional resources).
-- **Diagnostics**: `print_state()` offers a clear snapshot for debugging, grading, and demonstration.
-
----
-
-### j) Testing & edge cases
-- **Nominal case**: The built-in example with 5 processes × 3 resource types; verify the reported safe sequence.
-- **Over-request**: Ensure rejection when `request > need`.
-- **Insufficient availability**: Ensure rejection when `request > available`.
-- **Unsafe transition**: Craft a request that is ≤ `need` and ≤ `available` but leads to **no safe sequence** → must be denied with rollback.
-- **Matrix shape checks** (manual): Validate that `maximum` and `allocation` are `n × m` and non-negative.
 
 ---
 
